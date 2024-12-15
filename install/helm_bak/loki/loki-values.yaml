@@ -1,0 +1,43 @@
+read:
+  replicas: 1
+  persistence:
+    storageClass: hostpath
+write:
+  replicas: 1
+  persistence:
+    storageClass: hostpath
+backend:
+  replicas: 1
+  persistence:
+    storageClass: hostpath
+
+loki:
+  schemaConfig:
+    configs:
+      - from: 2024-04-01
+        object_store: s3
+        store: tsdb
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+        chunks:
+          period: 24h
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    bucketNames:
+      chunks: loki-chunks
+      ruler: loki-ruler
+      admin: loki-admin
+    type: s3
+    s3:
+      s3: null
+      endpoint: http://my-minio.storage.svc.cluster.local:9000
+      region: ap-northeast-2
+      secretAccessKey: r9qffGHCTAGjUUeoSArPoneDxlKBQ1fwMIwNO7rG
+      accessKeyId: dnC8MQpIk4rDG0LQ2xE1
+      signatureVersion: null
+      s3ForcePathStyle: true
+      insecure: true

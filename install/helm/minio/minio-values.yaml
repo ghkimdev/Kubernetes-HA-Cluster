@@ -1,0 +1,16 @@
+auth:
+  rootUser: admin
+  rootPassword: "P@ssw0rd!"
+defaultBuckets: "loki-chunks, loki-ruler, loki-admin, tempo-traces, mimir-tsdb, mimir-alertmanager, mimir-ruler"
+statefulset:
+  replicaCount: 1
+  zones: 1
+  drivesPerNode: 1
+service:
+  type: LoadBalancer
+  ports:
+    api: 9000
+    console: 9001
+  nodePorts:
+    api: "32000"
+    console: "32001"

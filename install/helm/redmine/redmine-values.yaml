@@ -1,0 +1,21 @@
+mariadb:
+  enabled: false
+postgresql:
+  enabled: false
+
+databaseType: postgresql
+
+externalDatabase:
+  host: my-postgresql.postgresql.svc.cluster.local
+  port: 5432
+  user: redmine
+  database: redmine
+  password: redmine-password
+ 
+service:
+  ## @param service.type Redmine service type
+  ##
+  type: LoadBalancer
+  nodePorts:
+    http: "31080"
+

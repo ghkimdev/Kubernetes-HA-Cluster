@@ -1,0 +1,18 @@
+server:
+  service:
+    type: LoadBalancer
+    nodePortHttp: 30082
+    nodePortHttps: 30042
+  ingress:
+    enabled: true
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    ingressClassName: "nginx"
+
+    path: /
+    pathType: Prefix
+
+    tls: true
+
+

@@ -12,12 +12,15 @@ echo -e "admin\nadmin" | passwd root >/dev/null 2>&1
 
 # Set Hosts file
 cat <<EOF | tee -a /etc/hosts
-172.16.0.101 master1.example.com  master1
-172.16.0.102 master2.example.com  master2
-172.16.0.103 master3.example.com  master3
-172.16.0.111 worker1.example.com  worker1
-172.16.0.112 worker2.example.com  worker2
-172.16.0.113 worker3.example.com  worker3
-172.16.0.121 lb1.example.com      lb1
-172.16.0.122 lb2.example.com      lb2
+172.16.0.101 master01.example.com  master01
+172.16.0.102 master02.example.com  master02
+172.16.0.103 master03.example.com  master03
+172.16.0.111 worker01.example.com  worker01
+172.16.0.112 worker02.example.com  worker02
+172.16.0.113 worker03.example.com  worker03
+172.16.0.114 worker04.example.com  worker04
+172.16.0.121 lb01.example.com      lb01
+172.16.0.122 lb02.example.com      lb02
 EOF
+
+chown -R vagrant:vagrant /opt

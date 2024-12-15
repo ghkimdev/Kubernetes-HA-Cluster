@@ -1,0 +1,11 @@
+service:
+  ## @param service.type Jenkins service type
+  ##
+  type: LoadBalancer
+  nodePorts:
+    http: "31081"
+    https: "31041"
+persistence:
+  enabled: true
+  storageClass: longhorn
+

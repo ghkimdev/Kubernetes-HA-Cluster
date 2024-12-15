@@ -1,0 +1,10 @@
+externalDB:
+  enabled: true
+
+  externalDriverType: "postgres"
+  externalConnectionString: "mmuser:mmuser-password@my-postgresql.postgresql.svc.cluster.local:5432/mattermost?sslmode=disable&connect_timeout=10"
+
+mysql:
+  enabled: false
+
+

@@ -1,0 +1,21 @@
+primary:
+  initdb:
+    ## @param primary.initdb.scripts Dictionary of initdb scripts
+    ## Specify dictionary of scripts to be run at first boot
+    ## e.g:
+    ## scripts:
+    ##   my_init_script.sh: |
+    ##      #!/bin/sh
+    ##      echo "Do something."
+    ##
+    scripts: 
+      my_init.sql: |
+        -- Mattermost Setting
+        CREATE DATABASE mattermost;
+        CREATE USER mmuser WITH PASSWORD 'mmuser-password';
+        GRANT ALL PRIVILEGES ON DATABASE mattermost to mmuser;
+        ALTER DATABASE mattermost OWNER TO mmuser;
+        GRANT USAGE, CREATE ON SCHEMA PUBLIC TO mmuser;
+        -- Redmine Setting
+        CREATE ROLE redmine LOGIN ENCRYPTED PASSWORD 'redmine-password' NOINHERIT VALID UNTIL 'infinity';
+        CREATE DATABASE redmine WITH ENCODING='UTF8' OWNER=redmine;

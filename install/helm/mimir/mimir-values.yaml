@@ -1,0 +1,52 @@
+query_scheduler:
+  replicas: 1
+
+querier:
+  replicas: 1
+
+alertmanager:
+        #  fallbackConfig: |
+          #    receivers:
+            #      - name: 'slack-notifications'
+            #        slack_configs:
+            #          - channel: '#alerts'
+            #            text: '{{ template "slack.myorg.text" . }}'
+            #    route:
+            #      receiver: 'slack-notifications'
+  persistentVolume:
+    storageClass: longhorn
+
+ingester:
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    storageClass: longhorn
+
+store_gateway:
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    storageClass: longhorn
+
+minio:
+  enabled: false
+mimir:
+  structuredConfig:
+    common:
+      storage:
+        backend: s3
+        s3:
+          access_key_id: 0rqSx7AIpUZSr1i0A2ER 
+          bucket_name: mimir-ruler
+          endpoint: my-minio.minio.svc.cluster.local:9000
+          insecure: true
+          secret_access_key: IHTYs1KOFUHUcwE3FDmXZZqlenHZBlQwjvzEIxKo 
+    blocks_storage:
+      s3:
+        bucket_name: mimir-tsdb
+    alertmanager_storage:
+      s3:
+        bucket_name: mimir-alertmanager
+    ruler_storage:
+      s3:
+        bucket_name: mimir-ruler

@@ -1,0 +1,192 @@
+#!/bin/bash
+
+echo "[TASK 1] Pull required containers"
+sudo kubeadm config images pull >/dev/null
+
+echo "[TASK 2] Initialize Kubernetes Cluster"
+sudo kubeadm init --apiserver-advertise-address $(hostname -I | awk '{print $2}') --control-plane-endpoint "172.16.0.120:6443" --upload-certs --pod-network-cidr=192.168.0.0/16 >> ~/kubeinit.log 2>/dev/null
+
+grep -A3 "kubeadm join" ~/kubeinit.log | head -n 3 > ~/join_master.sh
+sed -i "s/--token/--apiserver-advertise-address \$(hostname -I | awk '{print \$2}') --token/g" ~/join_master.sh
+grep -A1 "kubeadm join" ~/kubeinit.log | tail -n 2 > ~/join_worker.sh
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+echo "[TASK 3] Deploy calico network"
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/custom-resources.yaml
+
+echo "[TASK 5] Deploy MetalLB"
+kubectl get configmap kube-proxy -n kube-system -o yaml | \
+sed -e "s/strictARP: false/strictARP: true/" | \
+kubectl diff -f - -n kube-system > /dev/null 2>&1
+
+kubectl get configmap kube-proxy -n kube-system -o yaml | \
+sed -e "s/strictARP: false/strictARP: true/" | \
+kubectl apply -f - -n kube-system > /dev/null 2>&1
+
+curl --silent https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml -o ~/metallb-native.yaml 
+kubectl apply -f ~/metallb-native.yaml > /dev/null 2>&1
+
+cat >> ~/metallb-config.yaml<<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: first-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 172.16.16.240-172.16.16.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: metallb-12adv
+  namespace: metallb-system
+EOF
+
+kubectl apply -f ~/metallb-config.yaml > /dev/null 2>&1
+
+echo "[TASK 5] Deploy Ingress-Nginx Controller"
+curl --silent https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/baremetal/deploy.yaml -o ~/ingress-nginx.yaml
+kubectl apply -f ~/ingress-nginx.yaml
+
+echo "[TASK 6] Deploy Kubernetes Metric Server"
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/high-availability-1.21+.yaml > /dev/null 2>&1
+kubectl patch deployments.apps -n kube-system metrics-server --type=json -p='[{"op": "add", "path":"/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+
+echo "[TASK 7] Create local storageclass"
+cat > ~/storageclass-local.yaml<<EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner # indicates that this StorageClass does not support automatic provisioning
+volumeBindingMode: WaitForFirstConsumer
+EOF
+
+kubectl apply -f ~/storageclass-local.yaml
+
+echo "[TASK 8] Create nfs storageclass "
+cat > ~/nfs-provisioner.yaml <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nfs-storage
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nfs-client-provisioner
+  namespace: nfs-storage
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: run-nfs-client-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    namespace: nfs-storage
+roleRef:
+  kind: ClusterRole
+  name: nfs-client-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-nfs-client-provisioner
+  namespace: nfs-storage
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-nfs-client-provisioner
+  namespace: nfs-storage
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    namespace: nfs-storage
+roleRef:
+  kind: Role
+  name: leader-locking-nfs-client-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+  namespace: nfs-storage
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: k8s-sigs.io/nfs-subdir-external-provisioner
+            - name: NFS_SERVER
+              value: master01 # use your nfs server
+            - name: NFS_PATH
+              value: /srv/nfs/kubernetes # use your nfs exports path
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: master01 # use your nfs server
+            path: /srv/nfs/kubernetes # use your nfs exports path
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: managed-nfs-storage
+  annotations:
+provisioner: k8s-sigs.io/nfs-subdir-external-provisioner
+parameters:
+  archiveOnDelete: "false"
+EOF
+
+kubectl apply -f ~/nfs-provisioner.yaml

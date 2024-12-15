@@ -1,0 +1,8 @@
+persistence:
+  enabled: true
+  storageClass: longhorn
+
+service:
+  type: LoadBalancer
+
+
