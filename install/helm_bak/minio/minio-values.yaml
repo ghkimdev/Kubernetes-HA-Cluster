@@ -1,8 +1,0 @@
-auth:
-  ## @param auth.rootUser MinIO&reg; root username
-  ##
-  rootUser: admin
-  ## @param auth.rootPassword Password for MinIO&reg; root user
-  ##
-  rootPassword: "P@ssw0rd!"
-

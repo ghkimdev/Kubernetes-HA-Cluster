@@ -1,8 +1,0 @@
-server:
-  extraArgs:
-    - --auth-mode=server
-  ingress:
-    enabled: true
-    ingressClassName: nginx
-    hosts:
-      - argo-workflow.example.com

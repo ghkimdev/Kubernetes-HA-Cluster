@@ -1,4 +1,0 @@
-persistence:
-  # -- If `true`, persistence should be enabled for the `StatefulSet`.
-  enabled: true
-
